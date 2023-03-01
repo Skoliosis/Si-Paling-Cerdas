@@ -2,7 +2,6 @@
 
 void TextureManager::Init()
 {
-
 }
 
 void TextureManager::Destroy()
