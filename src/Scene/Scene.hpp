@@ -1,28 +1,32 @@
 #pragma once
 #include <memory>
-#include <raylib.h>
+
+#include "Utils/Utils.hpp"
+#include "Utils/State.hpp"
+#include "Graphics/TextureManager.hpp"
 
 class Scene
 {
 public:
     virtual void Init() {}
-    virtual void Draw() = 0;
-    virtual void Update() = 0;
+    virtual void Draw();
+    virtual void Update();
     virtual void Destroy() {}
 
     ~Scene() { Destroy(); }
 };
 
-extern std::shared_ptr<Scene> g_Scene;
+extern std::unique_ptr<Scene> g_NextScene;
+extern std::unique_ptr<Scene> g_Scene;
 
 template<typename T>
-void SetCurrentScene()
+inline void SetNextScene()
 {
-    g_Scene = std::make_shared<T>();
-    g_Scene->Init();
+    g_NextScene = std::make_unique<T>();
+    g_NextScene->Init();
 }
 
-inline std::shared_ptr<Scene> GetCurrentScene()
+inline std::unique_ptr<Scene>& GetCurrentScene()
 {
     return g_Scene;
 }

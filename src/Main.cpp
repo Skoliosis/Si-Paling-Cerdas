@@ -3,14 +3,17 @@
 
 #include "Utils/Utils.hpp"
 #include "Scene/Scene.hpp"
+#include "Scene/BurgerMenu.hpp"
+#include "Scene/HomeMenuScene.hpp"
 #include "Graphics/TextureManager.hpp"
+#include "Network/ENetClient.hpp"
 
-#define WINDOW_WIDTH 1200
-#define WINDOW_HEIGHT 800
-#define TEAM_WATERMARK_NAME "Made by Skoliosis"
+#define WINDOW_WIDTH 1440
+#define WINDOW_HEIGHT 1024
 
 int main()
 {
+    GetState();
     TraceLog(LOG_INFO, "Si Paling Cerdas");
     TraceLog(LOG_INFO, "Made by Skoliosis Team");
     TraceLog(LOG_INFO, "- Ricky Jiunardi (2540133436) (Leader)");
@@ -32,28 +35,57 @@ int main()
     GetCurrentScene()->Init();
     GetTextureManager()->Init();
 
-    int teamNameFontSize = 15;
-    int teamNamePadding = 10;
-    int teamNameTextLength = MeasureText(TEAM_WATERMARK_NAME, teamNameFontSize);
-    int teamNamePositionX = WINDOW_WIDTH - teamNameTextLength - teamNamePadding;
-    int teamNamePositionY = WINDOW_HEIGHT - teamNameFontSize - teamNamePadding;
+    if (!GetENetClient()->Init())
+    {
+        TraceLog(LOG_ERROR, "Failed to initialize ENet client");
+        return EXIT_FAILURE;
+    }
 
-    while (!WindowShouldClose())
+    if (!GetENetClient()->Connect())
+    {
+        TraceLog(LOG_WARNING, "ENet host connect fails");
+        return EXIT_FAILURE;
+    }
+
+    while (!WindowShouldClose() && GetState()->Running)
     {
         GetCurrentScene()->Update();
-
         BeginDrawing();
-
-#ifdef _DEBUG
-        DrawFPS(0, 0);
-#endif
-
         ClearBackground(BLACK);
         GetCurrentScene()->Draw();
-        DrawText(TEAM_WATERMARK_NAME, teamNamePositionX, teamNamePositionY, teamNameFontSize, WHITE);
         EndDrawing();
+        GetENetClient()->Poll();
+
+        auto homeMenuScene = dynamic_cast<HomeMenuScene *>(g_Scene.get());
+        auto isConnected = GetENetClient()->IsConnected();
+        if (!homeMenuScene && !isConnected)
+        {
+            SetNextScene<HomeMenuScene>();
+        }
+
+        if (g_NextScene)
+        {
+            auto nextBurgerMenu = dynamic_cast<BurgerMenuScene *>(g_NextScene.get());
+            auto previousBurgerMenu = dynamic_cast<BurgerMenuScene *>(g_Scene.get());
+            auto isBurgerBar = previousBurgerMenu != nullptr && nextBurgerMenu != nullptr;
+
+            g_Scene = std::move(g_NextScene);
+            g_NextScene = nullptr;
+
+            if (isBurgerBar && (homeMenuScene || isConnected))
+            {
+                nextBurgerMenu = dynamic_cast<BurgerMenuScene *>(g_Scene.get());
+                nextBurgerMenu->X = 0;
+                nextBurgerMenu->AnimationState = AnimationState::Closing;
+            }
+
+            GetState()->FriendFetched = false;
+            GetState()->LeaderboardFetched = false;
+            GetState()->FriendRequestFetched = false;
+        }
     }
 
     GetTextureManager()->Destroy();
+    GetENetClient()->Destroy();
     CloseWindow();
 }
